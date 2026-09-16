@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FLASHGROUNDS - Relive Flash Games!</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Pixel & Retro typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&family=VT323&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Ruffle Flash Player WebAssembly Engine -->
+    <script src="https://unpkg.com/@ruffle-rs/ruffle"></script>
+
+    <style>
+        /* Modernized Early 2000s Palette & Design Tokens */
+        :root {
+            --ng-orange: #ff6600;
+            --ng-gold: #ffaa00;
+            --ng-dark-bg: #0f0f12;
+            --ng-panel-bg: #1c1c22;
+            --ng-panel-border: #383842;
+        }
+
+        body {
+            background-color: var(--ng-dark-bg);
+            color: #d1d1d1;
+            font-family: 'Silkscreen', 'Trebuchet MS', sans-serif;
+            background-image: 
+                radial-gradient(circle at 50% 0%, #2e1804 0%, transparent 75%),
+                linear-gradient(to bottom, #111115 0%, #08080a 100%);
+            background-attachment: fixed;
+        }
+
+        .pixel-font {
+            font-family: 'Press Start 2P', monospace;
+        }
+
+        .vt323-font {
+            font-family: 'VT323', monospace;
+        }
+
+        /* Brushed Metal Box Panel Styling */
+        .metal-panel {
+            background: linear-gradient(135deg, #26262e 0%, #1a1a20 50%, #121215 100%);
+            border: 2px solid #3f3f4a;
+            box-shadow: inset 1px 1px 0px rgba(255,255,255,0.08), inset -1px -1px 0px rgba(0,0,0,0.8), 0 6px 16px rgba(0,0,0,0.6);
+        }
+
+        .metal-header {
+            background: linear-gradient(180deg, #363642 0%, #1d1d24 100%);
+            border-bottom: 2px solid #ff6600;
+        }
+
+        .orange-glow {
+            text-shadow: 0 0 10px rgba(255, 102, 0, 0.75), 0 0 20px rgba(255, 102, 0, 0.4);
+        }
+
+        /* CRT Scanline Visual Overlay */
+        .scanlines {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%, 
+                rgba(0, 0, 0, 0.28) 50%
+            ), linear-gradient(
+                90deg,
+                rgba(255, 0, 0, 0.03),
+                rgba(0, 255, 0, 0.01),
+                rgba(0, 0, 255, 0.03)
+            );
+            background-size: 100% 3px, 6px 100%;
+            z-index: 9999;
+            opacity: 0.85;
+            display: block;
+        }
+
+        .scanlines.off {
+            display: none;
+        }
+
+        /* Beveled Retro Buttons */
+        .ng-btn {
+            background: linear-gradient(180deg, #ff8800 0%, #cc3300 100%);
+            border: 2px solid #ffaa00;
+            color: #ffffff;
+            text-shadow: 1px 1px 2px #000;
+            box-shadow: inset 1px 1px 0 rgba(255,255,255,0.4), 2px 2px 4px rgba(0,0,0,0.5);
+            transition: all 0.1s ease;
+        }
+
+        .ng-btn:hover {
+            background: linear-gradient(180deg, #ffa022 0%, #ee4400 100%);
+            transform: translateY(-1px);
+        }
+
+        .ng-btn:active {
+            background: linear-gradient(180deg, #aa2200 0%, #cc3300 100%);
+            transform: translateY(1px);
+        }
+
+        .ng-btn-dark {
+            background: linear-gradient(180deg, #42424d 0%, #222228 100%);
+            border: 2px solid #525260;
+            color: #ddd;
+            text-shadow: 1px 1px 2px #000;
+        }
+
+        .ng-btn-dark:hover {
+            background: linear-gradient(180deg, #525260 0%, #2a2a32 100%);
+            color: #fff;
+            border-color: #ff6600;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0a0a0c;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #ff6600;
+            border: 1px solid #882200;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between relative selection:bg-orange-600 selection:text-white">
+
+    <!-- CRT Scanline Effect Layer -->
+    <div id="scanlines" class="scanlines"></div>
+
+    <!-- MAIN SITE HEADER -->
+    <header class="w-full bg-black border-b-4 border-orange-600 shadow-2xl relative z-10">
+        <!-- Top Utility Bar -->
+        <div class="bg-zinc-950 px-4 py-1.5 text-xs flex justify-between items-center border-b border-zinc-800 text-zinc-400">
+            <div class="flex items-center space-x-3">
+                <span class="text-orange-500 font-bold tracking-wider"><i class="fa-solid fa-bolt"></i> FLASHGROUNDS</span>
+                <span class="hidden sm:inline text-zinc-700">|</span>
+                <span class="hidden sm:inline text-zinc-400">Powered by Ruffle Flash Player Engine</span>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button id="crtToggle" class="hover:text-orange-400 transition flex items-center gap-1.5 cursor-pointer font-mono text-xs">
+                    <i class="fa-solid fa-tv"></i> <span id="crtStatus">CRT: ON</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Banner Header Section -->
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center space-x-3.5">
+                <div class="w-12 h-12 bg-zinc-900 border-2 border-orange-500 flex items-center justify-center rounded shadow-lg flex-shrink-0">
+                    <i class="fa-solid fa-gamepad text-orange-500 text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="pixel-font text-2xl md:text-3xl text-orange-500 tracking-wider orange-glow font-bold">
+                        FLASHGROUNDS
+                    </h1>
+                    <p class="text-xs text-orange-400/90 font-mono tracking-widest uppercase mt-0.5">Relive Flash Games!</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dynamic Category Navigation -->
+        <nav class="bg-zinc-900 border-t border-zinc-800 px-4">
+            <div class="max-w-7xl mx-auto flex flex-wrap gap-1.5 text-xs font-bold uppercase py-1.5" id="categoryNav">
+                <!-- Genre buttons dynamically inserted here -->
+            </div>
+        </nav>
+    </header>
+
+    <!-- MAIN APPLICATION GRID -->
+    <main class="max-w-7xl mx-auto w-full px-4 py-6 flex-grow grid grid-cols-1 lg:grid-cols-4 gap-6">
+
+        <!-- SWF GAME PLAYER AREA (3 COLUMNS) -->
+        <section class="lg:col-span-3 space-y-4">
+            
+            <div class="metal-panel rounded-lg overflow-hidden border-2 border-orange-600/70">
+                <div class="metal-header px-4 py-2.5 flex justify-between items-center">
+                    <span id="playerHeaderTitle" class="pixel-font text-xs text-orange-400 flex items-center gap-2">
+                        <i class="fa-solid fa-play text-yellow-500"></i> RUFFLE SWF PLAYER
+                    </span>
+                    <span id="playerStatus" class="text-xs text-green-400 font-mono font-bold uppercase">Ready</span>
+                </div>
+
+                <!-- SWF Canvas Screen Container -->
+                <div class="p-3 bg-zinc-950 flex flex-col items-center">
+                    <div id="playerContainer" class="w-full aspect-[4/3] max-h-[580px] bg-black rounded border-2 border-zinc-800 relative flex flex-col items-center justify-center overflow-hidden shadow-inner">
+                        <!-- Ruffle Player will be mounted here -->
+                    </div>
+
+                    <!-- Interactive Control Panel Below Player -->
+                    <div class="w-full mt-3 bg-zinc-900 border border-zinc-800 p-3 rounded flex flex-wrap justify-between items-center gap-3">
+                        <div class="flex-grow">
+                            <h3 id="activeGameTitle" class="text-sm font-bold text-orange-400">Select a Game</h3>
+                            <p id="activeGameMeta" class="text-xs text-zinc-400 mt-0.5">Author: - | Genre: - | Year: -</p>
+                        </div>
+
+                        <!-- Fullscreen & Reload Actions -->
+                        <div class="flex items-center gap-2">
+                            <button onclick="reloadActiveGame()" class="ng-btn-dark px-3 py-1 text-xs rounded font-bold hover:border-orange-500 cursor-pointer flex items-center gap-1.5">
+                                <i class="fa-solid fa-rotate-right text-orange-400"></i> Restart
+                            </button>
+                            <button onclick="toggleFullscreen()" class="ng-btn-dark px-3 py-1 text-xs rounded font-bold hover:border-orange-500 cursor-pointer flex items-center gap-1.5">
+                                <i class="fa-solid fa-expand text-orange-400"></i> Fullscreen
+                            </button>
+                        </div>
+
+                        <!-- Visual Judgment Counter (No SFX) -->
+                        <div class="flex items-center space-x-2 bg-zinc-950 px-3 py-1 rounded border border-zinc-800">
+                            <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">JUDGMENT:</span>
+                            <button onclick="voteBlam()" class="px-2.5 py-1 bg-red-950 hover:bg-red-900 text-red-400 border border-red-800 rounded text-xs font-bold transition flex items-center gap-1 cursor-pointer">
+                                <i class="fa-solid fa-bomb text-[10px]"></i> BLAM! (<span id="blamCount">0</span>)
+                            </button>
+                            <button onclick="voteProtect()" class="px-2.5 py-1 bg-green-950 hover:bg-green-900 text-green-400 border border-green-800 rounded text-xs font-bold transition flex items-center gap-1 cursor-pointer">
+                                <i class="fa-solid fa-shield-halved text-[10px]"></i> SAVE (<span id="protectCount">0</span>)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Game Details Box -->
+            <div class="metal-panel p-4 rounded-lg space-y-3">
+                <div class="border-b border-zinc-700/60 pb-2 flex justify-between items-center">
+                    <h4 class="text-xs font-bold text-orange-400 uppercase tracking-wider font-mono flex items-center gap-2">
+                        <i class="fa-solid fa-circle-info"></i> GAME DETAILS & INSTRUCTIONS
+                    </h4>
+                    <span id="activeGameRating" class="text-xs text-yellow-500 font-mono font-bold">★ 0.0 / 5.0</span>
+                </div>
+                <p id="activeGameDesc" class="text-xs text-zinc-300 leading-relaxed font-sans">
+                    Choose any game from the directory to start playing using Ruffle Flash emulation.
+                </p>
+                <div class="bg-zinc-950 p-2.5 rounded border border-zinc-800 text-xs">
+                    <span class="text-orange-400 font-bold font-mono uppercase text-[10px] block mb-0.5">Controls / Instructions:</span>
+                    <span id="activeGameInstructions" class="text-zinc-400 font-mono text-[11px]">Use mouse or keyboard arrow keys as required by the SWF.</span>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- SIDEBAR DIRECTORY (1 COLUMN) -->
+        <aside class="space-y-4">
+            
+            <!-- GAME SELECTION GALLERY -->
+            <div class="metal-panel rounded-lg overflow-hidden">
+                <div class="metal-header px-3 py-2 text-xs text-orange-400 font-bold pixel-font flex justify-between items-center">
+                    <span><i class="fa-solid fa-list"></i> FLASH VAULT</span>
+                    <span id="gameCount" class="text-zinc-400 font-mono text-[10px]">0 Games</span>
+                </div>
+                <div id="sidebarGameList" class="p-2 bg-zinc-950 max-h-[640px] overflow-y-auto space-y-2">
+                    <!-- Dynamic Game Cards -->
+                </div>
+            </div>
+
+        </aside>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="bg-black border-t-4 border-orange-600 mt-8 py-4 text-xs text-zinc-500">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-2">
+            <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-bolt text-orange-500 text-sm"></i>
+                <span class="text-zinc-300 font-bold">FLASHGROUNDS</span> &mdash; Relive Flash Games!
+            </div>
+            <div class="text-[11px] text-zinc-500 font-mono">
+                Powered by Ruffle WebAssembly SWF Emulator
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        /*
+        ===================================================================
+        * FLASHGROUNDS CODE CONFIGURATION GUIDE
+        ===================================================================
+        * To add or modify genres, edit the GENRES array below.
+        * To add or edit games, edit the GAMES array below.
+        * 
+        * HOW TO ADD A NEW GENRE:
+        * Simply add a string to the GENRES array:
+        *   const GENRES = ["ALL", "Action", "Shooter", "Puzzle", "YourNewGenre"];
+        *
+        * HOW TO ADD A NEW GAME:
+        * Add a new object inside the GAMES array:
+        * {
+        *     id: "unique-game-id",
+        *     title: "Your Game Title",
+        *     swfUrl: "path/to/game.swf", // URL or relative path e.g., "games/mygame.swf"
+        *     thumbnailUrl: "https://placehold.co/300x200/1a1a20/ff6600?text=My+Game",
+        *     genre: "Action",            // Must match one of your genres
+        *     rating: "4.8",
+        *     author: "Author Name",
+        *     year: "2006",
+        *     description: "Short game summary...",
+        *     instructions: "Controls summary..."
+        * }
+        * ===================================================================
+        */
+
+        // 1. GENRES ARRAY (Add or remove category labels here)
+        const GENRES = [
+            "ALL",
+            "Action",
+            "Shooter",
+            "Platformer",
+            "Arcade",
+            "Puzzle"
+        ];
+
+        // 2. GAMES ARRAY (Add, remove, or edit your game entries here)
+        const GAMES = [
+            {
+                id: "interactive-buddy",
+                title: "Interactive Buddy",
+                swfUrl: "https://archive.org/download/interactive-buddy_202212/Interactive%20Buddy.swf",
+                thumbnailUrl: "https://placehold.co/300x200/1a1a20/ff6600?text=Interactive+Buddy",
+                genre: "Arcade",
+                rating: "4.8",
+                author: "ShockRods",
+                year: "2005",
+                description: "Classic Flash playground where you interact with a customizable buddy using various physics tools, weapons, skins, and sports gear.",
+                instructions: "Use the left sidebar menus to select items, weapons, and hand interactions."
+            },
+            {
+                id: "alien-hominid",
+                title: "Alien Hominid (Original)",
+                swfUrl: "https://archive.org/download/alien-hominid-flash/alienhominid.swf",
+                thumbnailUrl: "https://placehold.co/300x200/1a1a20/ffaa00?text=Alien+Hominid",
+                genre: "Shooter",
+                rating: "4.9",
+                author: "TomFulp & DanPaladin",
+                year: "2002",
+                description: "The iconic run-and-gun Flash game that launched a console classic! Blast through secret agents and defend your alien ship.",
+                instructions: "Arrow keys to move, A to shoot, S to jump, D to throw grenades."
+            },
+            {
+                id: "fancy-pants-1",
+                title: "Fancy Pants Adventures",
+                swfUrl: "https://archive.org/download/fancy-pants-adventures-world-1/Fancy%20Pants%20World%201.swf",
+                thumbnailUrl: "https://placehold.co/300x200/1a1a20/ff6600?text=Fancy+Pants",
+                genre: "Platformer",
+                rating: "4.9",
+                author: "Brad Borne",
+                year: "2006",
+                description: "Run fast, wall jump, slide, and flip through hand-drawn stickman platforming levels.",
+                instructions: "Left / Right Arrow keys to run, Up Arrow to open doors, S key to jump."
+            },
+            {
+                id: "custom-game-example-1",
+                title: "Sample Action Game",
+                swfUrl: "https://raw.githubusercontent.com/ruffle-rs/ruffle/master/web/packages/demo/test.swf",
+                thumbnailUrl: "https://placehold.co/300x200/22222b/ff6600?text=Action+Sample",
+                genre: "Action",
+                rating: "4.5",
+                author: "Flash Developer",
+                year: "2007",
+                description: "Sample entry showcasing how you can point any game entry to your own local or web-hosted .swf file.",
+                instructions: "Use mouse to aim and click to interact."
+            },
+            {
+                id: "custom-game-example-2",
+                title: "Sample Puzzle SWF",
+                swfUrl: "https://raw.githubusercontent.com/ruffle-rs/ruffle/master/web/packages/demo/test.swf",
+                thumbnailUrl: "https://placehold.co/300x200/22222b/ffaa00?text=Puzzle+Sample",
+                genre: "Puzzle",
+                rating: "4.3",
+                author: "Puzzle Master",
+                year: "2008",
+                description: "Sample puzzle template entry ready for you to replace title, description, and swfUrl in code.",
+                instructions: "Click puzzle pieces to rotate or shift."
+            }
+        ];
+
+        // Global State Variables
+        let activeGameIndex = 0;
+        let selectedGenre = 'ALL';
+        let blamVotes = 124;
+        let protectVotes = 890;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            buildGenreNav();
+            renderSidebarGames();
+            if (GAMES.length > 0) {
+                loadGame(0);
+            }
+            setupCRTToggle();
+        });
+
+        // Generate Genre Filter Navigation
+        function buildGenreNav() {
+            const nav = document.getElementById('categoryNav');
+            nav.innerHTML = GENRES.map(genre => `
+                <button 
+                    onclick="filterByGenre('${genre}')" 
+                    id="genreBtn-${genre}" 
+                    class="px-3 py-1 rounded cursor-pointer transition text-xs font-bold ${genre === selectedGenre ? 'bg-orange-600 text-black' : 'bg-zinc-800 text-zinc-300 hover:text-orange-400'}"
+                >
+                    ${genre}
+                </button>
+            `).join('');
+        }
+
+        // Handle Genre Filter Click
+        function filterByGenre(genre) {
+            selectedGenre = genre;
+            buildGenreNav();
+            renderSidebarGames();
+        }
+
+        // Render Sidebar Games List (Filters by Genre)
+        function renderSidebarGames() {
+            const listElem = document.getElementById('sidebarGameList');
+            
+            const filtered = GAMES.filter(game => {
+                return (selectedGenre === 'ALL') || (game.genre.toUpperCase() === selectedGenre.toUpperCase());
+            });
+
+            document.getElementById('gameCount').innerText = `${filtered.length} Games`;
+
+            if (filtered.length === 0) {
+                listElem.innerHTML = `
+                    <div class="p-4 text-center space-y-2">
+                        <i class="fa-solid fa-ghost text-zinc-600 text-2xl"></i>
+                        <p class="text-xs text-zinc-500 italic">No games found in this genre.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            listElem.innerHTML = filtered.map(game => {
+                const originalIndex = GAMES.findIndex(g => g.id === game.id);
+                const isActive = originalIndex === activeGameIndex;
+
+                return `
+                    <div 
+                        onclick="loadGame(${originalIndex})" 
+                        class="p-2 rounded border transition cursor-pointer flex gap-2.5 items-center ${isActive ? 'bg-zinc-900 border-orange-500 shadow-md' : 'bg-zinc-950 border-zinc-800 hover:border-zinc-600'}"
+                    >
+                        <img 
+                            src="${game.thumbnailUrl}" 
+                            onerror="this.src='https://placehold.co/100x70/111/ff6600?text=SWF'" 
+                            class="w-16 h-12 object-cover rounded border border-zinc-800 flex-shrink-0" 
+                            alt="thumb"
+                        >
+                        <div class="overflow-hidden flex-grow">
+                            <h4 class="text-xs font-bold ${isActive ? 'text-orange-400' : 'text-zinc-200'} truncate">${game.title}</h4>
+                            <p class="text-[10px] text-zinc-400 truncate">by ${game.author}</p>
+                            <div class="flex justify-between items-center text-[9px] text-zinc-500 mt-1">
+                                <span class="text-yellow-500 font-mono">★ ${game.rating}</span>
+                                <span class="uppercase font-mono">${game.genre}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Load Game into Ruffle SWF Player Engine
+        function loadGame(index) {
+            activeGameIndex = index;
+            const game = GAMES[index];
+
+            document.getElementById('activeGameTitle').innerText = game.title;
+            document.getElementById('activeGameMeta').innerText = `Author: ${game.author} | Genre: ${game.genre} | Year: ${game.year || 'Classic'}`;
+            document.getElementById('activeGameDesc').innerText = game.description;
+            document.getElementById('activeGameInstructions').innerText = game.instructions || "Use standard keyboard and mouse controls.";
+            document.getElementById('activeGameRating').innerText = `★ ${game.rating} / 5.0`;
+
+            // Reset Judgment counter simulation
+            blamVotes = Math.floor(Math.random() * 50) + 10;
+            protectVotes = Math.floor(Math.random() * 400) + 200;
+            document.getElementById('blamCount').innerText = blamVotes;
+            document.getElementById('protectCount').innerText = protectVotes;
+
+            renderSidebarGames();
+
+            // Ruffle Mount Point
+            const container = document.getElementById('playerContainer');
+            container.innerHTML = `<div id="ruffleTarget" class="w-full h-full flex items-center justify-center bg-black"></div>`;
+            
+            document.getElementById('playerStatus').innerText = "LOADING SWF...";
+            document.getElementById('playerStatus').className = "text-xs text-yellow-400 font-mono font-bold animate-pulse";
+
+            try {
+                window.RufflePlayer = window.RufflePlayer || {};
+                const ruffle = window.RufflePlayer.newest();
+                const player = ruffle.createPlayer();
+                const target = document.getElementById('ruffleTarget');
+                
+                target.appendChild(player);
+                player.style.width = "100%";
+                player.style.height = "100%";
+
+                player.load(game.swfUrl).then(() => {
+                    document.getElementById('playerStatus').innerText = "EMULATING LIVE";
+                    document.getElementById('playerStatus').className = "text-xs text-green-400 font-mono font-bold uppercase";
+                }).catch(err => {
+                    console.error("Ruffle SWF load error:", err);
+                    document.getElementById('playerStatus').innerText = "SWF LOAD ERROR";
+                    document.getElementById('playerStatus').className = "text-xs text-red-400 font-mono font-bold uppercase";
+                    
+                    container.innerHTML = `
+                        <div class="p-6 text-center space-y-3 max-w-md">
+                            <i class="fa-solid fa-triangle-exclamation text-yellow-500 text-3xl"></i>
+                            <h4 class="text-xs font-bold text-orange-400">SWF File Load Notice</h4>
+                            <p class="text-[11px] text-zinc-400">Unable to stream SWF file directly from external URL:<br><code class="text-zinc-300 font-mono break-all text-[10px]">${game.swfUrl}</code></p>
+                            <p class="text-[10px] text-zinc-500">To fix this in your own project, place your .swf files into a local folder (e.g. <code class="text-orange-400 font-mono">games/mygame.swf</code>) and set <code class="text-orange-400 font-mono">swfUrl</code> accordingly!</p>
+                        </div>
+                    `;
+                });
+            } catch(e) {
+                console.error("Ruffle Initialization Error:", e);
+            }
+        }
+
+        // Restart Active Game
+        function reloadActiveGame() {
+            loadGame(activeGameIndex);
+        }
+
+        // Fullscreen Toggle
+        function toggleFullscreen() {
+            const container = document.getElementById('playerContainer');
+            if (!document.fullscreenElement) {
+                container.requestFullscreen().catch(err => console.error("Fullscreen error:", err));
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // Pure Visual Vote Interactivity (No Audio)
+        function voteBlam() {
+            blamVotes++;
+            document.getElementById('blamCount').innerText = blamVotes;
+        }
+
+        function voteProtect() {
+            protectVotes++;
+            document.getElementById('protectCount').innerText = protectVotes;
+        }
+
+        // CRT Visual Filter Toggle
+        function setupCRTToggle() {
+            const crtToggle = document.getElementById('crtToggle');
+            const crtElem = document.getElementById('scanlines');
+            const crtStatus = document.getElementById('crtStatus');
+
+            crtToggle.addEventListener('click', () => {
+                crtElem.classList.toggle('off');
+                crtStatus.innerText = crtElem.classList.contains('off') ? 'CRT: OFF' : 'CRT: ON';
+            });
+        }
+    </script>
+</body>
+</html>
